@@ -1,4 +1,5 @@
 from ECGManager import *
+from feature_detection import *
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as sgn
@@ -202,28 +203,45 @@ def plot_peaks(x, fs, peaks):
 def plot_entangled_signal(x, fs, interval, period):
     """Plot several signal arts in the same plot"""
 
-    # Create time vector
-    t_range = interval[0][1] - interval[0][0]
-    t = np.arange(0, t_range, 1/fs)
+    # Find maximum interval
+    right_extrem = 0
+    left_extrem = 0
+    for interv in interval:
+        if interv[1]-interv[0] > left_extrem:
+            left_extrem = interv[1]-interv[0]
+
+        if interv[2]-interv[1] > right_extrem:
+            right_extrem = interv[2]-interv[1]
+
+    left_extrem = int(np.ceil(left_extrem*fs))+1
+    right_extrem = int(np.ceil(right_extrem*fs))+1
+
 
     # Create mean vector
-    xmean = np.zeros(int(round(t_range*fs)))
+    xmean = np.zeros(right_extrem+left_extrem)
 
     # Plot
     f, ax = plt.subplots(figsize=(12,10))
     for interv in interval:
+        # Get start end and center
         start = int(round(interv[0]*fs))
-        end = int(round(interv[1]*fs))
-        plt.plot(t, x[start:end])
-        xmean += x[start:end]/len(interval)
+        center = int(round(interv[1]*fs))
+        end = int(round(interv[2]*fs))
+        
+        # Create time vector
+        t = (np.arange(len(x[start:end])) - (center-start))
+        plt.plot(t/fs, x[start:end])
+        xmean[(left_extrem+min(t)):(left_extrem+max(t)+1)] += x[start:end]/len(interval)
 
-    plt.plot(t, xmean, color='black', linewidth=4)
+    t = (np.arange(len(xmean)) - left_extrem)
+    plt.plot(t/fs, xmean, color='black', linewidth=4)
     ax.set_ylabel("Voltage(mV)", fontsize=18, labelpad=30)
     ax.set_xlabel("Time(s)", fontsize=18)
-    ax.axis([0.25*t_range, 0.75*t_range, 1.2*min(x), 1.2*max(x)])
-    ax.set_xticks(np.arange(0.25*t_range, 0.75*t_range, 0.2), minor=True)
+    ax.axis([-0.6*period, 0.6*period, 1.2*min(x), 1.2*max(x)])
+    ax.set_xticks(np.arange(-0.6*period, 0.6*period, 0.2), minor=True)
     ax.set_yticks(np.arange(1.2*min(x), 1.2*max(x), 0.1), minor=True)
     ax.grid(which='minor')
     ax.grid()
 
     return
+

@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from util import *
 import scipy.signal as sgn
 
 
@@ -65,8 +64,9 @@ def find_Rwave(x, xe, fs, period, min_period):
     # Compute rms of enhanced signal
     rms_xe = xe.std()
 
-    # set initial threshold
-    threshold = np.sqrt(2)*rms_xe
+    # set initial thresholds
+    threshold_enhanced = np.sqrt(2)*rms_xe
+    threshold = 0
 
     # Length x
     N = len(x)
@@ -81,17 +81,50 @@ def find_Rwave(x, xe, fs, period, min_period):
     nperiods = int(np.floor(N/P))
 
     # Tries to find one peak per period
-    peaks = []
+    count_peaks = 0
     start = 0
     end = start+int(round(P))
+    max_peak = 0
+    mean_peaks = 0
+    max_e_peak = 0
+    mean_e_peaks = 0
     for i in range(nperiods):
         max_ind_e = np.argmax(xe[start:end])+start
+        max_e = xe[max_ind_e]
         max_ind = np.argmax(x[max_ind_e-minP:max_ind_e+minP])+max_ind_e-minP
+        max_p = x[max_ind]
         start = max_ind + minP
         end = start+int(round(P*1.5))
-        peaks.append(max_ind*1/fs)
+        if max_e > threshold_enhanced and max_p > threshold:
+            count_peaks += 1
+            max_peak = max((max_peak, max_p))
+            max_e_peak = max((max_e_peak, max_e))
+            mean_peaks += max_p
+            mean_e_peaks += max_e
+
+    # divide mean
+    mean_e_peaks = mean_e_peaks/count_peaks
+    mean_peaks = mean_peaks/count_peaks
+
+    # update thresholds
+    threshold_enhanced = max((threshold_enhanced+2*mean_e_peaks-max_e_peak)/2, threshold_enhanced)
+    threshold = max(3*mean_peaks-2*max_peak, threshold)
+
+    # Choose all peaks above both thresholds
+    peaks = []
+    i_prev = -1000
+    for i in range(len(x)):
+        if xe[i] > threshold_enhanced:
+            max_ind = np.argmax(x[i-minP:i+minP])+i-minP
+            if  x[max_ind] > threshold:
+                if i-i_prev > minP: 
+                    peaks.append(max_ind*1/fs)
+                    i_prev = i
 
     return peaks
+
+def find_Swave(x, xe, fs, period, min_period):
+    return find_Rwave(-x, -xe, fs, period, min_period)
 
 def subdivide_ecg(x, fs, peaks, period):
     # Length x
@@ -107,8 +140,9 @@ def subdivide_ecg(x, fs, peaks, period):
     start = 0
     end = 0
     for i in range(1,nperiods-1):
-        start = max(0, peaks[i] - period)
-        end = min(len(x)*1/fs, peaks[i] + period)
-        interval.append((start, end))
+        start = peaks[i-1]
+        center = peaks[i]
+        end = peaks[i+1]
+        interval.append((start, center, end))
 
     return interval
