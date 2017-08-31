@@ -1,3 +1,3 @@
 # ECG
 
-``ECG.ipynb``: Notebook descrevendo análise de sinais de eletrocardiograma.
+``ECG.ipynb``: Jupyter notebook descrevendo a análise de sinais de eletrocardiograma.
